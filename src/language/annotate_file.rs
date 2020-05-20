@@ -27,11 +27,12 @@ pub enum LineType {
 impl LanguageType {
     /// Annotates a given `Path` using the `LanguageType`. Returning `HashMap<usize, LineType>`
     /// on success and giving back ownership of PathBuf on error.
-    pub fn annotate_file(
+    pub fn annotate_file<P: Into<PathBuf>>(
         self,
-        path: PathBuf,
+        path: P,
         config: &Config,
     ) -> Result<HashMap<usize, LineType>, (io::Error, PathBuf)> {
+        let path = path.into();
         let text = {
             let f = match File::open(&path) {
                 Ok(f) => f,
@@ -136,8 +137,7 @@ impl LanguageType {
         mut annotations: HashMap<usize, LineType>,
         mut syntax: SyntaxCounter,
     ) -> HashMap<usize, LineType> {
-        let mut line_num: usize = 1;
-        for line in lines {
+        for (line_num, line) in lines.into_iter().enumerate() {
             // FORTRAN has a rule where it only counts as a comment if it's the
             // first character in the column, so removing starting whitespace
             // could cause a miscount.
@@ -150,7 +150,6 @@ impl LanguageType {
 
             if line.trim().is_empty() {
                 annotations.insert(line_num, LineType::Blank);
-                line_num += 1;
                 trace!("Blank on Line No.{}", line_num);
                 continue;
             } else if syntax.is_plain_mode() && !syntax.shared.important_syntax.is_match(line) {
@@ -168,7 +167,6 @@ impl LanguageType {
                     annotations.insert(line_num, LineType::Code);
                     trace!("Code on Line No.{}", line_num);
                 }
-                line_num += 1;
                 continue;
             }
 
@@ -184,7 +182,6 @@ impl LanguageType {
             'window: for i in 0..line.len() {
                 if skip != 0 {
                     skip -= 1;
-                    line_num += 1;
                     continue;
                 }
 
@@ -198,10 +195,8 @@ impl LanguageType {
                 if let Some(skip_amount) = is_end_of_quote_or_multi_line {
                     ended_with_comments = true;
                     skip!(skip_amount);
-                    line_num += 1;
                     continue;
                 } else if syntax.quote.is_some() {
-                    line_num += 1;
                     continue;
                 }
 
@@ -211,7 +206,6 @@ impl LanguageType {
 
                 if let Some(skip_amount) = is_quote_or_multi_line {
                     skip!(skip_amount);
-                    line_num += 1;
                     continue;
                 }
 
@@ -248,7 +242,6 @@ impl LanguageType {
                 annotations.insert(line_num, LineType::Code);
                 trace!("Code on Line No.{}", line_num);
             }
-            line_num += 1;
         }
 
         annotations
