@@ -14,6 +14,7 @@ use rayon::prelude::*;
 use crate::LanguageType;
 
 /// Type of Line
+#[derive(Debug)]
 pub enum LineType {
     /// Blank line
     Blank,
