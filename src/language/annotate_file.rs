@@ -9,12 +9,11 @@ use crate::{config::Config, language::syntax::SyntaxCounter, utils::ext::SliceEx
 
 use encoding_rs_io::DecodeReaderBytesBuilder;
 use grep_searcher::LineIter;
-use rayon::prelude::*;
 
 use crate::LanguageType;
 
 /// Type of Line
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum LineType {
     /// Blank line
     Blank,
@@ -66,64 +65,8 @@ impl LanguageType {
                 annotations.insert(num, LineType::Code);
             });
             annotations
-        } else if let Some(end) = syntax
-            .shared
-            .important_syntax
-            .earliest_find(text)
-            .and_then(|m| {
-                // Get the position of the last line before the important
-                // syntax.
-                text[..=m.start()]
-                    .into_iter()
-                    .rev()
-                    .position(|&c| c == b'\n')
-                    .filter(|&p| p != 0)
-                    .map(|p| m.start() - p)
-            })
-        {
-            let (skippable_text, rest) = text.split_at(end + 1);
-            let lines = LineIter::new(b'\n', skippable_text);
-            let is_fortran = syntax.shared.is_fortran;
-            let comments = syntax.shared.line_comments;
-
-            let (mut annots_first, annots_last) = rayon::join(
-                move || {
-                    self.annotate_lines(config, LineIter::new(b'\n', rest), annotations, syntax)
-                },
-                move || {
-                    lines
-                        .enumerate()
-                        .par_bridge()
-                        .map(|(num, line)| {
-                            // FORTRAN has a rule where it only counts as a comment if it's the
-                            // first character in the column, so removing starting whitespace
-                            // could cause a miscount.
-                            let mut line_map: HashMap<usize, LineType> = HashMap::new();
-                            let line = if is_fortran { line } else { line.trim() };
-                            trace!("{}", String::from_utf8_lossy(line));
-
-                            if line.trim().is_empty() {
-                                line_map.insert(num, LineType::Blank);
-                            } else if comments.iter().any(|c| line.starts_with(c.as_bytes())) {
-                                line_map.insert(num, LineType::Comment);
-                            } else {
-                                line_map.insert(num, LineType::Code);
-                            }
-                            line_map
-                        })
-                        .reduce(
-                            || HashMap::new(),
-                            |mut annotations, map| -> HashMap<usize, LineType> {
-                                annotations.extend(map);
-                                annotations
-                            },
-                        )
-                },
-            );
-
-            // combine all HashMaps together, no overlap occurs
-            annots_first.extend(annots_last);
-            annots_first
+        // TODO: Removed divide and conquer parsing, this could improve performance
+        // if that's an issue
         } else {
             self.annotate_lines(config, lines, annotations, syntax)
         }
@@ -138,6 +81,9 @@ impl LanguageType {
         mut syntax: SyntaxCounter,
     ) -> HashMap<usize, LineType> {
         for (line_num, line) in lines.into_iter().enumerate() {
+            // Increment line_num in order to match actual line numbers
+            let line_num = line_num + 1;
+
             // FORTRAN has a rule where it only counts as a comment if it's the
             // first character in the column, so removing starting whitespace
             // could cause a miscount.
