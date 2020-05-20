@@ -4,7 +4,7 @@ use aho_corasick::{AhoCorasick, AhoCorasickBuilder};
 use dashmap::DashMap;
 use log::Level::Trace;
 
-use super::language_type::LanguageType;
+use crate::language::LanguageType;
 
 /// Tracks the syntax of the language as well as the current state in the file.
 /// Current has what could be consider three types of mode.

@@ -1,10 +1,11 @@
+pub mod annotate_file;
 pub mod language_type;
 pub mod languages;
 mod syntax;
 
 use std::{mem, ops::AddAssign};
 
-pub use self::{language_type::*, languages::Languages};
+pub use self::{annotate_file::LineType, language_type::*, languages::Languages};
 
 use crate::{
     sort::Sort::{self, *},
