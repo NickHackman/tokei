@@ -62,7 +62,7 @@ impl LanguageType {
 
         if self.is_blank() {
             lines.enumerate().for_each(|(num, _)| {
-                annotations.insert(num, LineType::Code);
+                annotations.insert(num + 1, LineType::Code);
             });
             annotations
         // TODO: Removed divide and conquer parsing, this could improve performance
